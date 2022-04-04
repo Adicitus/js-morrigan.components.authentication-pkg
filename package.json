@@ -1,0 +1,25 @@
+{
+  "name": "morrigan.components.authentication",
+  "version": "1.0.0",
+  "description": "Component encapsulating Authentiation/Authorization functionality for Morrigan.",
+  "main": "package.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adicitus/js-morrigan.components.authentication-pkg.git"
+  },
+  "keywords": [
+    "morrigan"
+  ],
+  "author": "Joakim Olsson <joakim.olsson@adicitus.cloud>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Adicitus/js-morrigan.components.authentication-pkg/issues"
+  },
+  "homepage": "https://github.com/Adicitus/js-morrigan.components.authentication-pkg#readme",
+  "dependencies": {
+    "@adicitus/jwtgenerator": "^1.0.0"
+  }
+}
