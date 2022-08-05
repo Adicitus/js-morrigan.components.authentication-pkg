@@ -4,6 +4,7 @@
   "description": "Component encapsulating Authentiation/Authorization functionality for Morrigan.",
   "main": "package.js",
   "scripts": {
+    "start": "node dev/start.js",
     "test": "mocha"
   },
   "repository": {
@@ -21,5 +22,8 @@
   "homepage": "https://github.com/Adicitus/js-morrigan.components.authentication-pkg#readme",
   "dependencies": {
     "@adicitus/jwtgenerator": "^1.0.0"
+  },
+  "devDependencies": {
+    "@adicitus/morrigan.server": "^0.7.0"
   }
 }
