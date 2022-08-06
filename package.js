@@ -7,11 +7,11 @@ const TokenGenerator = require('@adicitus/jwtgenerator')
 /**
  * Class containing Authentication/Authorization functionality of Morrigan.
  */
-class APIAuth {
+class AuthAPI {
     name=null
     functions=null
     
-    #log = (msg) => { console.log(msg) }
+    log = (msg) => { console.log(msg) }
     modulename = 'auth'
     access = {
         identity: {
@@ -41,7 +41,7 @@ class APIAuth {
         }
     }
 
-    #accessRights = null
+    accessRights = null
 
 
     /**
@@ -64,16 +64,16 @@ class APIAuth {
 
      tokens = null
  
-     #serverId = null
-     #identityRecords = null
-     #authenticationRecords = null
-     #tokenRecords = null
+     serverId = null
+     identityRecords = null
+     authenticationRecords = null
+     tokenRecords = null
 
 
     constructor() {
         this.name = this.modulename
         this.accessRights = this.buildAccessRightsList(this.modulename, this.access)
-        this.functions = this.#accessRights
+        this.functions = this.accessRights
     }
 
     /**
@@ -212,6 +212,8 @@ class APIAuth {
                 cleanRecord.auth = r.cleanRecord
             }
         }
+
+
         /* ====== End: Validate authentication ====== */
 
         if (details.functions) {
@@ -470,7 +472,7 @@ class APIAuth {
         
         let providers = defintion.providers
 
-        this.serverid = serverEnv.info.id
+        this.serverId = serverEnv.info.id
 
         let settings = serverEnv.settings
 
@@ -482,7 +484,7 @@ class APIAuth {
         this.tokenRecords = serverEnv.db.collection('morrigan.identities.tokens')
         this.authenticationRecords = serverEnv.db.collection('morrigan.authentication')
 
-        this.tokens = new TokenGenerator({id: this.serverid, collection: this.tokenRecords, keyLifetime: { hours: 4 }})
+        this.tokens = new TokenGenerator({id: this.serverId, collection: this.tokenRecords, keyLifetime: { hours: 4 }})
 
         let identities = await this.identityRecords.find().toArray()
         let authentications = await await this.authenticationRecords.find().toArray()
@@ -498,7 +500,7 @@ class APIAuth {
                     type: 'password',
                     password: 'Pa55w.rd'
                 },
-                functions: accessRights.map((ar) => { return ar.name })
+                functions: this.accessRights.map((ar) => { return ar.name })
             })
             
             if (adminUser.state === 'success') {
@@ -729,10 +731,7 @@ class APIAuth {
             res.send(JSON.stringify(r))
         })
 
-        /**
-         * Remove identity endpoint
-         */
-        router.delete(`/identity/:identityId`, async (req, res) => {
+        let ep_delete = async (req, res) => {
             if (!allowAccess(req, res, this.access.identity.delete.all.fullname)) { return }
 
             let r = await this.removeIdentity(req.params.identityId)
@@ -740,11 +739,74 @@ class APIAuth {
             if (r.state === 'success') {
                 res.status(200)
             } else {
-                res.status(400)
+                if (/^request/.test(r.state)) {
+                    res.status(404)
+                } else {
+                    res.status(500)
+                }
             }
 
             res.send(JSON.stringify(r))
-        })
+        }
+
+        ep_delete.openapi = {
+            delete: {
+                tags: ['Identity', 'Identity Lifecycle'],
+                description: "Removes the specified user from the system.",
+                summary: "Removes the specified user from the system.",
+                parameters: [
+                    { $ref: '#/components/parameters/morrigan.components.authentication.identityId' }
+                ],
+                responses: {
+                    200: {
+                        description: "The identity was removed.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        state: {
+                                            type: 'string',
+                                            pattern: '^success$'
+                                        }
+                                    }
+                                },
+                                example: {
+                                    state: 'success'
+                                }
+                            }
+                        }
+                    },
+                    404: {
+                        description: "Failed to remove the identity because it does not exist.",
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/morrigan.components.authentication.errorMessage' },
+                                example: {
+                                    state: 'requestError', reason: 'No such user.'
+                                }
+                            }
+                        }
+                    },
+                    500: {
+                        desription: "Someting went wromg on the server side.",
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/morrigan.components.authentication.errorMessage' },
+                                example: {
+                                    state: 'requestError', reason: 'No such user.'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Remove identity endpoint
+         */
+        router.delete(`/identity/:identityId`, ep_delete)
     }
 
     /**
@@ -789,6 +851,8 @@ class APIAuth {
             next()
         }
     }
+
+    openapi = require('./openapi')
 }
 
-module.exports = new APIAuth()
+module.exports = new AuthAPI()
