@@ -530,10 +530,7 @@ class AuthAPI {
             return false
         }
 
-        /**
-         * Authentication endpoint.
-         */
-        router.post('/', async (req, res) => {
+        let ep_authenticate = async (req, res) => {
             
             var r = await this.authenticate(req.body)
 
@@ -562,7 +559,104 @@ class AuthAPI {
                 }
                 res.send(JSON.stringify(r))
             }
-        })
+        }
+
+        ep_authenticate.openapi = {
+            post: {
+                tags: ['Authentication'],
+                summary: "Authenticate with the system.",
+                description: "Authenticate with the system.",
+                requestBody: {
+                    description: "The format of the request varies depending on the authentication type used, but the 'type' key should always be included.",
+                    content: {
+                        'application/json': {
+                            schema: {
+                                required: [
+                                    'type'
+                                ],
+                                properties: {
+                                    type: {
+                                        description: "The type of authentication to use. This is should correspond to the name of a loaded authentication provider.",
+                                        type: 'string',
+                                        minLength: 1,
+                                        pattern: '[A-z0-9_\-.]+'
+                                    }
+                                }
+                            },
+                            example: {
+                                type: 'password',
+                                username: 'user',
+                                password: 'password'
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Successfully authenticated, find the token in the 'token' key of the returned object.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    properties: {
+                                        state: {
+                                            description: "Status message.",
+                                            type: 'string',
+                                            pattern: '^success$'
+                                        },
+                                        token: {
+                                            type: 'string',
+                                            format: 'jwt',
+                                            pattern: '^[a-zA-Z0-9\/+]+\.[a-zA-Z0-9\/+]+\.[a-zA-Z0-9\/+]+$'
+                                        }
+                                    }
+                                },
+                                example: {
+                                    "state":  "success",
+                                    "token":  "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjQ1ZWFlNjNiLTYzNmYtNDcwNC04ZDk4LTYyMzIyZjMwMDJiNCJ9.eyJzdWIiOiIyYmY0NTA5Zi1jYjRkLTRlNTctOGI0MC1hMzVlZWJlM2Q1MGQiLCJpc3MiOiI5ZWJiNjM5Yy0zODFjLTRmOTctYjlhZS0zYWQxOTgwNzFiMjAiLCJpYXQiOjE2NTk2OTI3OTUsImV4cCI6MTY1OTY5NDU5NX0.AAAAAEoTJuoOC1wHIvkNt-kGFrIiXSOctMEDaGdHUtEAAAAAS5G2aRmWgirN3RezVCa6dHV7O9ck3jhPKpZ8mA"
+                                }
+                            }
+                        }
+                    },
+                    400: {
+                        description: "Failed to authenticate, invalid request. See response body for details.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/morrigan.components.authentication.errorMessage'
+                                },
+                                examples: {
+                                    'No username specified': { value: { state: 'requestError', reason: 'No username specified.' } },
+                                    'Invalid username format': { value: {state: 'requestError', reason: `Invalid name format (should match regex /[A-z0-9_\-.]+/).`} },
+                                    'Username taken': { value: {state: 'requestError', reason: 'Identity name already in use.'} },
+                                    'No auth details specified': { value: { state: 'requestError', reason: 'No athentication details specified for new identity.' } },
+                                    'No auth type specified': { value: { state: 'requestError', reason: 'No authentication type specified.' } }
+                                }
+                            }
+                        }
+                    },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    500: {
+                        description: "Authentication failed due to an error on the server side.",
+                        content: {
+                            'application/json': {
+                                schema: { $ref: '#/components/schemas/morrigan.components.authentication.errorMessage' },
+                                examples: {
+                                    'Missing auth record': { value: { state: 'serverMissingAuthRecord', reason: 'Authentication record missing.' } },
+                                    'Invalid auth type': { value: { state: 'serverConfigurationError', reason: `Invalid authentication type specified for user: ${auth.type}` } },
+                                    'No validation function': { value: { state: 'serverConfigurationError', reason: `No validation function specified for authentication type: ${auth.type}` } },
+                                    'No commit function': { value: { state: 'serverConfigurationError', reason: `No commit function specified for authentication type: ${auth.type}` } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Authentication endpoint.
+         */
+        router.post('/', ep_authenticate)
 
         /**
          * Middleware to protect identity functions.
@@ -578,10 +672,7 @@ class AuthAPI {
             next()
         })
 
-        /**
-         * Add identity endpoint.
-         */
-        router.post(`/identity`, async (req, res) => {
+        let ep_newIdentity = async (req, res) => {
             
             if (!allowAccess(req, res, this.access.identity.create.fullname)) { return }
 
@@ -596,7 +687,7 @@ class AuthAPI {
             let r = await this.addIdentity(details)
 
             if (r.state === 'success') {
-                res.status(201)
+                res.status(200)
                 res.send(JSON.stringify(r))
                 return
             }
@@ -608,12 +699,93 @@ class AuthAPI {
             }
             
             res.send(JSON.stringify(r))
-        })
+        }
+
+        ep_newIdentity.openapi = {
+            post : {
+                tags: ['Identity', 'Identity Lifecycle'],
+                description: "Create a new identity in the system.",
+                summary: "Create a new identity",
+                requestBody: { $ref: '#/components/requestBodies/morrigan.components.authentication.identitySpec' },
+                responses: {
+                    200: {
+                        description: "The new identity was added.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        state: {
+                                            description: "Operation status message.",
+                                            type: 'string',
+                                            pattern: '^success$'
+                                        },
+                                        identity: { $ref: '#/components/schemas/morrigan.components.authentication.identityRecord' }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: {
+                        description: "Failed to add the identity due to issues with the request body informstion.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    properties: {
+                                        state: {
+                                            description: "Error status message.",
+                                            type: 'string',
+                                            pattern: '^request'
+                                        },
+                                        reason: {
+                                            description: "More detailed human-readable description of the error."
+                                        }
+                                    }
+                                },
+                                examples: {
+                                    'Missing authentication details provided': {
+                                        value: { state: 'requestError', reason: 'No athentication details specified for new identity.' }
+                                    },
+                                    'Missing authentication type': {
+                                        value: { state: 'requestError', reason: 'No authentication type specified.' }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    500: {
+                        description: "Failed to add the identity due to an issue on the server.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    $ref: '#/components/schemas/morrigan.components.authentication.errorMessage'
+                                },
+                                examples: {
+                                    'Invalid authentication type': {
+                                        value: { state: 'serverConfigurationError', reason: `Invalid authentication type specified for user: myAuthProvider` }
+                                    },
+                                    'No validation function specified': {
+                                        value: { state: 'serverConfigurationError', reason: `No validation function specified for authentication type: myAuthProvider` }
+                                    },
+                                    'No commit function specified': {
+                                        value: { state: 'serverConfigurationError', reason: `No commit function specified for authentication type: myAuthProvider` }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         /**
-         * Get identityRecords endpoint
+         * Add identity endpoint.
          */
-        router.get(`/identity`, (req, res) => {
+        router.post(`/identity`, ep_newIdentity)
+
+        let ep_getIdentities = (req, res) => {
             if (!allowAccess(req, res, this.access.identity.get.all.fullname)) { return }
 
             this.identityRecords.find().toArray().then(o => {
@@ -624,12 +796,49 @@ class AuthAPI {
                 res.status(500)
                 res.send(JSON.stringify({state: 'serverError', reason: 'Failed to retrieve identity records.'}))
             })
-        })
+        }
+
+        ep_getIdentities.openapi = {
+            get: {
+                tags: ['Identity'],
+                description: "Retrieves all identity records in the the system.",
+                summary: "Retrieve all identities.",
+                responses: {
+                    200: {
+                        description: "Returns an array of all identity records in the system.",
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/morrigan.components.authentication.identityRecord' }
+                                }
+                            }
+                        }
+                    },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    500: {
+                        description: "Someting went wrong on the server side.",
+                        content: {
+                            'application/json': {
+                                type: 'object',
+                                schema: {
+                                    $ref: '#/components/schemas/morrigan.components.authentication.errorMessage'
+                                },
+                                example: { state: 'serverError', reason: 'Failed to retrieve identity records.' }
+                                
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         /**
-         * Get my identityRecord endpoint
+         * Get identityRecords endpoint
          */
-        router.get(`/identity/me`, (req, res) => {
+        router.get(`/identity`, ep_getIdentities)
+
+        let ep_getIdentityMe = (req, res) => {
             this.identityRecords.find({id: req.authenticated.id}).toArray().then(o => {
                 if (o.length === 0) {
                     res.status(404)
@@ -644,12 +853,28 @@ class AuthAPI {
                 res.status(500)
                 res.send(JSON.stringify({state: 'serverError', reason: 'Failed to retrieve identity records.'}))
             })
-        })
+        }
+
+        ep_getIdentityMe.openapi = {
+            get: {
+                tags: ['Identity'],
+                description: "Retrieves the identity record for the calling identity.",
+                summary: "Retrieves identity for the caller.",
+                responses: {
+                    200: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.200' },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    404: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.404' },
+                    500: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.500' }
+                }
+            }
+        }
 
         /**
-         * Get specific identityRecord endpoint
+         * Get my identityRecord endpoint
          */
-        router.get(`/identity/:identityId`, (req, res) => {
+        router.get(`/identity/me`, ep_getIdentityMe)
+
+        let ep_getIdentityById = (req, res) => {
             if (!allowAccess(req, res, this.access.identity.get.all.fullname)) { return }
 
             this.identityRecords.find({ id: req.params.identityId }).toArray().then(o => {
@@ -666,12 +891,33 @@ class AuthAPI {
                 res.status(500)
                 res.send(JSON.stringify({state: 'serverError', reason: 'Failed to retrieve identity records.'}))
             })
-        })
+        }
+
+        ep_getIdentityById.openapi = {
+            get: {
+                tags: ['Identity'],
+                description: "Retrieves the identity record for the specified identity ID.",
+                summary: "Retrieves identity by ID.",
+                parameters: [
+                    { $ref: '#/components/parameters/morrigan.components.authentication.identityId' }
+                ],
+                responses: {
+                    200: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.200' },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    404: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.404' },
+                    500: { $ref: '#/components/responses/morrigan.components.authentication.getSingle.500' }
+                }
+            }
+        }
 
         /**
-         * Update identity endpoint.
+         * Get specific identityRecord endpoint
          */
-        router.patch(`/identity/me`, async (req, res) => {
+        router.get(`/identity/:identityId`, ep_getIdentityById)
+
+
+
+        let ep_patchIdentityMe = async (req, res) => {
 
             if (!req.body) {
                 res.status(400)
@@ -700,12 +946,29 @@ class AuthAPI {
             }
             
             res.send(JSON.stringify(r))
-        })
+        }
+
+        ep_patchIdentityMe.openapi = {
+            patch: {
+                tags: ['Identity'],
+                description: "Updates the identity of the caller.",
+                summary: "Update the identity of the caller.",
+                requestBody: { $ref: '#/components/requestBodies/morrigan.components.authentication.identityOptions' },
+                responses: {
+                    200: { $ref: '#/components/responses/morrigan.components.authentication.patch.success' },
+                    400: { $ref: '#/components/responses/morrigan.components.authentication.patch.requestError' },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    500: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.500' }
+                }
+            }
+        }
 
         /**
          * Update identity endpoint.
          */
-        router.patch(`/identity/:identityId`, async (req, res) => {
+        router.patch(`/identity/me`, ep_patchIdentityMe)
+
+        let ep_patchIdentity = async (req, res) => {
             if (!allowAccess(req, res, this.access.identity.update.all.fullname)) { return }
 
             if (!req.body) {
@@ -729,7 +992,32 @@ class AuthAPI {
             }
             
             res.send(JSON.stringify(r))
-        })
+        }
+
+        ep_patchIdentity.openapi = {
+            patch: {
+                tags: ['Identity'],
+                description: "Updates an identity in the system.",
+                summary: "Updates an identity in the system.",
+                requestBody: { $ref: '#/components/requestBodies/morrigan.components.authentication.identityOptions' },
+                parameters: [
+                    { $ref: '#/components/parameters/morrigan.components.authentication.identityId' }
+                ],
+                responses: {
+                    200: { $ref: '#/components/responses/morrigan.components.authentication.patch.success' },
+                    400: { $ref: '#/components/responses/morrigan.components.authentication.patch.requestError' },
+                    403: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403' },
+                    500: { $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.500' }
+                }
+            }
+        }
+
+        /**
+         * Update identity endpoint.
+         */
+        router.patch(`/identity/:identityId`, ep_patchIdentity)
+
+
 
         let ep_delete = async (req, res) => {
             if (!allowAccess(req, res, this.access.identity.delete.all.fullname)) { return }
@@ -777,6 +1065,9 @@ class AuthAPI {
                             }
                         }
                     },
+                    403: {
+                        $ref: '#/components/responses/morrigan.components.authentication.errorMessage.generic.403'
+                    },
                     404: {
                         description: "Failed to remove the identity because it does not exist.",
                         content: {
@@ -789,13 +1080,10 @@ class AuthAPI {
                         }
                     },
                     500: {
-                        desription: "Someting went wromg on the server side.",
+                        desription: "Someting went wrong on the server side.",
                         content: {
                             'application/json': {
-                                schema: { $ref: '#/components/schemas/morrigan.components.authentication.errorMessage' },
-                                example: {
-                                    state: 'requestError', reason: 'No such user.'
-                                }
+                                schema: { $ref: '#/components/schemas/morrigan.components.authentication.errorMessage' }
                             }
                         }
                     }
@@ -851,8 +1139,9 @@ class AuthAPI {
             next()
         }
     }
-
-    openapi = require('./openapi')
 }
 
-module.exports = new AuthAPI()
+const auth = new AuthAPI()
+auth.openapi = require('./openapi')
+
+module.exports = auth
