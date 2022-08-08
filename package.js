@@ -592,7 +592,7 @@ class AuthAPI {
                             },
                             example: {
                                 type: 'password',
-                                username: 'user',
+                                name: 'user',
                                 password: 'password'
                             }
                         }
@@ -656,7 +656,8 @@ class AuthAPI {
                             }
                         }
                     }
-                }
+                },
+                security: {}
             }
         }
 
@@ -1129,7 +1130,7 @@ class AuthAPI {
             var auth = req.headers.authorization
     
             if (auth) {
-                var m = auth.match(/^(?<type>bearer) (?<token>.+)/)
+                var m = auth.match(/^(?<type>bearer) (?<token>.+)/i)
                 
                 if (m) {
                     let r  = await self.tokens.verifyToken(m.groups.token)

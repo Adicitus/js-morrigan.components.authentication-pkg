@@ -307,7 +307,7 @@ module.exports = {
             description: "Methods used to control the creation and destruction of identities."
         }
     ],
-    security: {
+    security: [{
         authorizationToken: []
-    }
+    }]
 }
