@@ -287,6 +287,14 @@ module.exports = {
                     }
                 }
             }
+        },
+        securitySchemes: {
+            authorizationToken: {
+                description: "Once authenticated using an authentication provider, the returned bearer token should be included in each request to the server.",
+                type: 'http',
+                scheme: 'bearer',
+                bearerFormat: 'jwt'
+            }
         }
     },
     tags: [
@@ -298,5 +306,8 @@ module.exports = {
             name: 'Identity Lifecycle',
             description: "Methods used to control the creation and destruction of identities."
         }
-    ]
+    ],
+    security: {
+        authorizationToken: []
+    }
 }

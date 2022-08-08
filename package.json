@@ -1,6 +1,6 @@
 {
   "name": "@adicitus/morrigan.components.authentication",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Component encapsulating Authentiation/Authorization functionality for Morrigan.",
   "main": "package.js",
   "scripts": {
