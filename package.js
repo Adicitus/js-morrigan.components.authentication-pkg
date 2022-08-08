@@ -480,6 +480,13 @@ class AuthAPI {
 
         this.authTypes = await require('@adicitus/morrigan.utils.providers').setup(router, providers, { 'log': this.log })
 
+        Object.keys(this.authTypes).forEach(type => {
+            let openapi = null
+            if (openapi = this.authTypes[type].openapi) {
+                this.openapi.push(openapi)
+            }
+        })
+
         this.identityRecords = serverEnv.db.collection('morrigan.identities')
         this.tokenRecords = serverEnv.db.collection('morrigan.identities.tokens')
         this.authenticationRecords = serverEnv.db.collection('morrigan.authentication')
@@ -1142,6 +1149,7 @@ class AuthAPI {
 }
 
 const auth = new AuthAPI()
-auth.openapi = require('./openapi')
+auth.openapi = []
+auth.openapi.push(require('./openapi'))
 
 module.exports = auth
