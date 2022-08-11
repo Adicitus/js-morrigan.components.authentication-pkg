@@ -299,6 +299,10 @@ module.exports = {
     },
     tags: [
         {
+            name: 'Authentication',
+            description: "Common authentication endpoint for all Morrigan functions."
+        },
+        {
             name: 'Identity',
             description: "Identities form the basic principals of the system."
         },
