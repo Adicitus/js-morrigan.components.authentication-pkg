@@ -478,7 +478,7 @@ class AuthAPI {
 
         this.log = serverEnv.log
 
-        this.authTypes = await require('@adicitus/morrigan.utils.providers').setup(router, providers, { 'log': this.log })
+        this.authTypes = await require('@adicitus/morrigan.utils.providers').setup(providers, { log: this.log, router: router })
 
         Object.keys(this.authTypes).forEach(type => {
             let openapi = null
