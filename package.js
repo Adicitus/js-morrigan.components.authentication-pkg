@@ -465,7 +465,6 @@ class AuthAPI {
      * @param {object} router The express router to install endpoints on.
      * @param {object} serverEnv Server environment, expected to contain:
      *  + db: The database used by the server.
-     *  + settings: The server settings object.
      *  + log: The log function to use.
      */
     async setup(name, defintion, router, serverEnv) {
@@ -473,8 +472,6 @@ class AuthAPI {
         let providers = defintion.providers
 
         this.serverId = serverEnv.info.id
-
-        let settings = serverEnv.settings
 
         this.log = serverEnv.log
 
