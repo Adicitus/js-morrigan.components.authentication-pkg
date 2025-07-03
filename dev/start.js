@@ -27,7 +27,7 @@ let server = new Morrigan({
         },
 
         auth: {
-            module: require('../package'),
+            module: require(`${__dirname}/../package`),
 
             providers: [
                 '@adicitus/morrigan.authentication.password'
