@@ -1169,7 +1169,7 @@ class AuthAPI {
                                 req.authenticated = identity
                             }
                         } else {
-                            self.log(`Authorization failed for ${req.method} request to secured endpoint '${req.path}' from ${req.socket.remoteAddress}:${req.socket.remotePort} on ${req.socket.localAddress}:${req.socket.localPort}`, 'error')
+                            self.log(`Authorization failed for ${req.method} request to secured endpoint '${req.path}' from ${req.socket.remoteAddress}:${req.socket.remotePort} on ${req.socket.localAddress}:${req.socket.localPort}: ${JSON.stringify(r)}`, 'error')
                             self.log(`Token: ${m.groups.token}`, 'debug')
                         }
                     }
