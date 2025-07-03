@@ -25,7 +25,7 @@
     "@adicitus/morrigan.utils.providers": "^2.0.1"
   },
   "devDependencies": {
-    "@adicitus/morrigan.server": "^0.10.2",
+    "@adicitus/morrigan.server": "^0.10.3",
     "mocha": "^11.2.0",
     "mongodb-memory-server": "^10.1.4"
   }
