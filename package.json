@@ -1,11 +1,11 @@
 {
   "name": "@adicitus/morrigan.components.authentication",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Component encapsulating Authentiation/Authorization functionality for Morrigan.",
   "main": "package.js",
   "scripts": {
     "start": "node dev/start.js",
-    "test": "mocha"
+    "test": "mocha --exit"
   },
   "repository": {
     "type": "git",
@@ -21,10 +21,12 @@
   },
   "homepage": "https://github.com/Adicitus/js-morrigan.components.authentication-pkg#readme",
   "dependencies": {
-    "@adicitus/jwtgenerator": "^1.0.0",
+    "@adicitus/jwtgenerator": "^2.1.0",
     "@adicitus/morrigan.utils.providers": "^2.0.1"
   },
   "devDependencies": {
-    "@adicitus/morrigan.server": "^0.7.11"
+    "@adicitus/morrigan.server": "^0.10.2",
+    "mocha": "^11.2.0",
+    "mongodb-memory-server": "^10.1.4"
   }
 }

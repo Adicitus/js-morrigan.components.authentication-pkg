@@ -6,6 +6,18 @@ const TokenGenerator = require('@adicitus/jwtgenerator')
 
 /**
  * Class containing Authentication/Authorization functionality of Morrigan.
+ * 
+ * This is done by managing 3 types of objects:
+ *  - Identities
+ *  - Authentication Records
+ *  - Authentication providers
+ * 
+ * ##Identities##
+ * An identity corresponds to a user or service that should have access to the system.
+ * 
+ * ##Authenticatiojn Records##
+ * Each identity has an authentication record associated with it 
+ *  
  */
 class AuthAPI {
     name=null
@@ -45,20 +57,30 @@ class AuthAPI {
 
 
     /**
-     * Each authentication type should have be defined by a
-     * corresponding authentication provider.
+     * Each authentication type should be defined by a corresponding
+     * module exporting the following 3 functions:
      * 
-     * A authentication provider is a module that exports 3 functions:
-     *  + Authenticate: Given the authentication details for an
-     *      identity and login details provided by the user, this
-     *      function should verify whether the login details are
-     *      correct.
-     *  + Validate: Given the authentication details for an identity,
-     *      this function should verify that the details are correct,
-     *      complete and could be used to verify login details.
-     *  + Commit: Given the authentication details for an identity,
-     *      should perform any tasks needed to enable verification using
-     *      the  "authenticate" function.
+     *   + Authenticate: Given the authentication details for an
+     *     identity and login details provided by the user, this
+     *     function should verify whether the login details are
+     *     correct.
+     * 
+     *   + Validate: Given the authentication details for an identity,
+     *     this function should verify that the details are correct,
+     *     complete and could be used to verify login details.
+     * 
+     *   + Commit: Given the authentication details for an identity,
+     *     should perform any tasks needed to enable verification using
+     *     the  "authenticate" function.
+     * 
+     * 
+     * Each method should return an object with a key 'state' that should contain one of:
+     *   - 'success': Indicating that the operation succeeded.
+     *   - 'failure': Indicating that the operation failed.
+     *   - 'error': Indicating that the 
+     * 
+     * 
+     * 
      */
      authTypes = null
 
@@ -283,7 +305,7 @@ class AuthAPI {
 
         let authType = this.authTypes[auth.type]
 
-        r = authType.authenticate(auth, details)
+        r = authType.authenticate(auth.commitRecord, details)
         
         if (r.state !== 'success') {
             return r
@@ -319,15 +341,19 @@ class AuthAPI {
             record.id = uuidv4()
 
             try {
+                // Register the authentication details of the identity before committing the idenitty to storage:
                 r = r.authType.commit(record.auth)
                 if (r.state !== 'success') {
                     return r
                 }
                 delete record.auth
 
-                let authRecord = r.commitRecord
-
-                authRecord.id = uuidv4()
+                // Wrap the returned commitRecord before storage to avoid modifying it:
+                let authRecord = {
+                    id: uuidv4(),
+                    type: r.commitRecord.type,
+                    commitRecord: r.commitRecord
+                }
 
                 this.authenticationRecords.insertOne(authRecord)
 
@@ -336,9 +362,11 @@ class AuthAPI {
             } catch (e) {
                 this.log(`Error occured while committing authentication details:`)
                 this.log(JSON.stringify(e))
+                console.log(e)
                 return { state: 'serverAuthCommitFailed', reason: 'An exception occured while commiting authentication details.' }
             }
 
+            // Make sure that the identity has a list of allowed functions:
             if (!record.functions) {
                 record.functions = []
             }
@@ -399,8 +427,11 @@ class AuthAPI {
                         return { state: 'serverAuthCommitFailed', reason: 'Failed to commit the new authentication details.' }
                     }
 
-                    newAuth = r.commitRecord
-                    newAuth.id = uuidv4()
+                    newAuth = {
+                        id: uuidv4(),
+                        type: authType.name,
+                        commitRecord: r.commitRecord
+                    }
                     newIdentity.authId = newAuth.id
                     break
                 }
@@ -441,18 +472,18 @@ class AuthAPI {
      * @param {string} identityId - Id of the identity to remove.
      */
     async removeIdentity(identityId){
-
         let r = await this.validateIdentitySpec({id: identityId})
 
         if (!r.pass) {
             return r
         }
-
         let identity = await this.identityRecords.findOne({id: identityId})
         let authId = identity.authId
-
-        await this.authenticationRecords.removeOne({ id: authId })
-        await this.identityRecords.removeOne({id: identity.id})
+        if ((this.authenticationRecords.removeOne)) {
+            this.authenticationRecords.deleteOne = THIS.authenticationRecords.removeOne
+        }
+        await this.authenticationRecords.deleteOne({ id: authId })
+        await this.identityRecords.deleteOne({id: identity.id})
         
         return { state: 'success' }
     }
@@ -523,8 +554,6 @@ class AuthAPI {
          * @param {string} functionName Name of the function to test for.
          */
         function allowAccess(req, res, functionName) {
-
-
             if (req.authenticated && req.authenticated.functions.includes(functionName)) {
                 return true
             }
@@ -844,6 +873,7 @@ class AuthAPI {
         router.get(`/identity`, ep_getIdentities)
 
         let ep_getIdentityMe = (req, res) => {
+            this.log('Entered ep_getIdentityMe', 'debug')
             this.identityRecords.find({id: req.authenticated.id}).toArray().then(o => {
                 if (o.length === 0) {
                     res.status(404)
@@ -1124,23 +1154,33 @@ class AuthAPI {
          */
         let self = this
         return async (req, res, next) => {
-            var auth = req.headers.authorization
-    
-            if (auth) {
-                var m = auth.match(/^(?<type>bearer) (?<token>.+)/i)
-                
-                if (m) {
-                    let r  = await self.tokens.verifyToken(m.groups.token)
-                    if (r.success) {
-                        var identity = await self.identityRecords.findOne({id: r.subject})
-    
-                        if (identity) {
-                            req.authenticated = identity
+
+            try {
+                var auth = req.headers.authorization
+
+                if (auth) {
+                    var m = auth.match(/^(?<type>bearer) (?<token>.+)/i)
+                    if (m) {
+                        let r  = await self.tokens.verifyToken(m.groups.token)
+                        if (r.success) {
+                            var identity = await self.identityRecords.findOne({id: r.subject})
+        
+                            if (identity) {
+                                req.authenticated = identity
+                            }
+                        } else {
+                            self.log(`Authorization failed for ${req.method} request to secured endpoint '${req.path}' from ${req.socket.remoteAddress}:${req.socket.remotePort} on ${req.socket.localAddress}:${req.socket.localPort}`, 'error')
+                            self.log(`Token: ${m.groups.token}`, 'debug')
                         }
                     }
-                }
+                } else {
+                    self.log(`Received ${req.method} request to secured endpoint '${req.path}' without Authorization header from ${req.socket.remoteAddress}:${req.socket.remotePort} on ${req.socket.localAddress}:${req.socket.localPort}`)
+                } 
+            }catch(e) {
+                self.log(`Unexpected fatal error in authenitcation middleware.`, 'debug')
+                self.log(JSON.stringify(e), 'error')
             }
-            
+                
             next()
         }
     }
@@ -1148,6 +1188,6 @@ class AuthAPI {
 
 const auth = new AuthAPI()
 auth.openapi = []
-auth.openapi.push(require('./openapi'))
+auth.openapi.push(require(`${__dirname}/openapi`))
 
 module.exports = auth
