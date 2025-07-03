@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/Adicitus/js-morrigan.components.authentication-pkg#readme",
   "dependencies": {
-    "@adicitus/jwtgenerator": "^2.1.0",
+    "@adicitus/jwtgenerator": "^2.1.1",
     "@adicitus/morrigan.utils.providers": "^2.0.1"
   },
   "devDependencies": {
